@@ -1,13 +1,16 @@
 import enum
+import json
 import logging
 import multiprocessing as mp
 import os
 import typing
 
 import click
+import psycopg2
 import requests
 
 BASE_URL = "https://support.allizom.org/api/1/kb/"
+DSN = "host=localhost dbname=postgres user=postgres password=postgres"
 
 
 class SlugProcessStatus(enum.Enum):
@@ -73,6 +76,16 @@ def process_slug(task_queue: mp.Queue, res_queue: mp.Queue, path: str) -> None:
     :res_queue: queue to output result per of processing per slug
     :path: configurable dir name in FS, slugs htmls will be stored there
     """
+
+    # not the prettiest way but needed to insure correct number
+    # of statuses
+    try:
+        connected = True
+        conn = psycopg2.connect(DSN)
+        curs = conn.cursor()
+    except Exception:
+        connected = False
+
     while not task_queue.empty():
         try:
             slug = task_queue.get()
@@ -103,14 +116,57 @@ def process_slug(task_queue: mp.Queue, res_queue: mp.Queue, path: str) -> None:
             with open(os.path.join(path, slug + ".html"), "w") as f:
                 f.write(body_parts["html"])
 
-            # need to put here to DB
+            if connected is False:
+                res_queue.put((slug, SlugProcessStatus.FAILED_PUT_TO_DB))
+                continue
+
+            SQL = "INSERT INTO slugs (id, title, slug, url, locale, products, topics, summary) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+            data = (
+                body_parts["id"],
+                body_parts["title"].replace("'", r"\'"),
+                body_parts["slug"].replace("'", r"\'"),
+                body_parts["url"].replace("'", r"\'"),
+                body_parts["locale"].replace("'", r"\'"),
+                json.dumps(body_parts["products"]).replace("'", r"\'"),
+                json.dumps(body_parts["topics"]).replace("'", r"\'"),
+                body_parts["summary"].replace("'", r"\'"),
+            )
+            curs.execute(SQL, data)
+            conn.commit()
 
             res_queue.put((slug, SlugProcessStatus.OK))
 
         except OSError:
             res_queue.put((slug, SlugProcessStatus.FAILED_TO_WRITE_TO_FS))
-        except Exception as e:
+        except Exception:
             res_queue.put((slug, SlugProcessStatus.EXCEPTION))
+
+    if connected is True:
+        curs.close()
+        conn.close()
+
+
+def initial_db_cleanup(
+    logger: logging.Logger,
+) -> bool:
+    """
+    This function truncates the table on startup, so
+    no additional cleanup is needed and script runs
+    are kind of idempotent
+    :logger: logger to log info
+    :returns: success status of the operation
+    """
+    try:
+        conn = psycopg2.connect(DSN)
+        curs = conn.cursor()
+        curs.execute("TRUNCATE TABLE slugs;")
+        conn.commit()
+        curs.close()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.debug(f"Failed to cleanup DB due to {e}")
+        return False
 
 
 @click.command()
@@ -121,7 +177,7 @@ def process_slug(task_queue: mp.Queue, res_queue: mp.Queue, path: str) -> None:
         1,
     ),
     default=50,
-    help="Maximum number of slugs to downloads",
+    help="Maximum number of slugs to download",
 )
 @click.option(
     "--path",
@@ -147,6 +203,9 @@ def main(slugs: click.IntRange, path: click.Path, verbose: bool) -> None:
         logger.setLevel(logging.DEBUG)
 
     logger.debug(f"Script started with: slugs={slugs}, path={path}, verbose={verbose}")
+    if initial_db_cleanup(logger) is False:
+        logger.info("Failed to cleanup DB, exiting...")
+        return
 
     try:
         task_queue = download_slug_names(typing.cast(int, slugs), logger)
@@ -165,15 +224,19 @@ def main(slugs: click.IntRange, path: click.Path, verbose: bool) -> None:
         p.start()
         processes.append(p)
 
+    for p in processes:
+        p.join()
+
     # Slug processing designed the way, so on each slug single status report is
     # generated. Here we use that fact that we will receive `task_size` amount
-    # of slugs precisely.
-    for _ in range(tasks_size):
+    # of slugs precisely. Can be done another way: each producer can send a sentinel
+    # message and once consumer receives them all it stops, but it is almost the
+    # same way of doing it.
+    while not res_queue.empty():
         slug, status = res_queue.get()
         logger.debug(f"Slug {slug} processed with status: {status}")
 
-    for p in processes:
-        p.join()
+    # NOTE: put info stats here
 
 
 if __name__ == "__main__":
