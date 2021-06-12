@@ -12,6 +12,17 @@ import requests
 
 BASE_URL = "https://support.allizom.org/api/1/kb/"
 DSN = "host=localhost dbname=postgres user=postgres password=postgres"
+SLUG_KEYS = [
+    "id",
+    "title",
+    "slug",
+    "url",
+    "locale",
+    "products",
+    "topics",
+    "summary",
+    "html",
+]
 
 
 class SlugProcessStatus(enum.Enum):
@@ -57,7 +68,7 @@ def download_slug_names(
     cnt = 0
     while True:
         for res in body["results"]:
-            logger.debug(f"Added slug {res['slug']} to task queue.")
+            logger.debug(f"{cnt} added slug {res['slug']} to task queue.")
             task_queue.put(res["slug"])
             cnt += 1
             if cnt == slug_number:
@@ -97,17 +108,7 @@ def process_slug(task_queue: mp.Queue, res_queue: mp.Queue, path: str) -> None:
 
             body = r.json()
             body_parts = {}
-            for key in (
-                "id",
-                "title",
-                "slug",
-                "url",
-                "locale",
-                "products",
-                "topics",
-                "summary",
-                "html",
-            ):
+            for key in SLUG_KEYS:
                 body_parts[key] = body.get(key, None)
 
             if None in body_parts.values():
@@ -122,19 +123,9 @@ def process_slug(task_queue: mp.Queue, res_queue: mp.Queue, path: str) -> None:
                 res_queue.put((slug, SlugProcessStatus.FAILED_PUT_TO_DB))
                 continue
 
-            SQL = "INSERT INTO slugs (id, title, slug, url, locale, products, topics, summary) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
-            data = (
-                body_parts["id"],
-                body_parts["title"].replace("'", r"\'"),
-                body_parts["slug"].replace("'", r"\'"),
-                body_parts["url"].replace("'", r"\'"),
-                body_parts["locale"].replace("'", r"\'"),
-                json.dumps(body_parts["products"]).replace("'", r"\'"),
-                json.dumps(body_parts["topics"]).replace("'", r"\'"),
-                body_parts["summary"].replace("'", r"\'"),
-            )
-            curs.execute(SQL, data)
-            conn.commit()
+            if insert_into_db(conn, curs, body_parts) is False:
+                res_queue.put((slug, SlugProcessStatus.FAILED_PUT_TO_DB))
+                continue
 
             res_queue.put((slug, SlugProcessStatus.OK))
         except queue.Empty:
@@ -165,11 +156,43 @@ def initial_db_cleanup(
         curs = conn.cursor()
         curs.execute("TRUNCATE TABLE slugs;")
         conn.commit()
-        curs.close()
-        conn.close()
         return True
     except Exception as e:
+        conn.rollback()
         logger.debug(f"Failed to cleanup DB due to {e}")
+        return False
+    finally:
+        curs.close()
+        conn.close()
+
+
+def insert_into_db(
+    conn: typing.Any, curs: typing.Any, body_parts: typing.Dict[str, str]
+) -> bool:
+    """
+    Inserting slug into DB
+    :conn: DB connection
+    :curs: cursor
+    :body_parts: dict with slug fields
+    :returns: success status of operation
+    """
+    try:
+        SQL = "INSERT INTO slugs (id, title, slug, url, locale, products, topics, summary) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+        data = (
+            body_parts["id"],
+            body_parts["title"].replace("'", r"\'"),
+            body_parts["slug"].replace("'", r"\'"),
+            body_parts["url"].replace("'", r"\'"),
+            body_parts["locale"].replace("'", r"\'"),
+            json.dumps(body_parts["products"]).replace("'", r"\'"),
+            json.dumps(body_parts["topics"]).replace("'", r"\'"),
+            body_parts["summary"].replace("'", r"\'"),
+        )
+        curs.execute(SQL, data)
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
         return False
 
 
@@ -257,9 +280,9 @@ def main(slugs: click.IntRange, path: click.Path, verbose: bool) -> None:
     # of slugs precisely. Can be done another way: each producer can send a sentinel
     # message and once consumer receives them all it stops, but it is almost the
     # same way of doing it.
-    for _ in range(tasks_size):
+    for i in range(tasks_size):
         slug, status = res_queue.get()
-        logger.debug(f"Slug {slug} processed with status: {status}")
+        logger.debug(f"{i} slug {slug} processed with status: {status}")
         stats[status] = stats.get(status, 0) + 1
 
     print_stats(stats, logger)
