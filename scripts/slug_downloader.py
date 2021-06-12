@@ -11,6 +11,7 @@ import psycopg2
 import requests
 
 BASE_URL = "https://support.allizom.org/api/1/kb/"
+# would go for putting password in env variable in prod case
 DSN = "host=localhost dbname=postgres user=postgres password=postgres"
 SLUG_KEYS = [
     "id",
@@ -89,8 +90,7 @@ def process_slug(task_queue: mp.Queue, res_queue: mp.Queue, path: str) -> None:
     :path: configurable dir name in FS, slugs htmls will be stored there
     """
 
-    # not the prettiest way but needed to insure correct number
-    # of statuses
+    # not the prettiest way but needed to insure correct number of statuses
     try:
         connected = True
         conn = psycopg2.connect(DSN)
@@ -180,13 +180,14 @@ def insert_into_db(
         SQL = "INSERT INTO slugs (id, title, slug, url, locale, products, topics, summary) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
         data = (
             body_parts["id"],
-            body_parts["title"].replace("'", r"\'"),
-            body_parts["slug"].replace("'", r"\'"),
-            body_parts["url"].replace("'", r"\'"),
-            body_parts["locale"].replace("'", r"\'"),
-            json.dumps(body_parts["products"]).replace("'", r"\'"),
-            json.dumps(body_parts["topics"]).replace("'", r"\'"),
-            body_parts["summary"].replace("'", r"\'"),
+            body_parts["title"],
+            body_parts["slug"],
+            body_parts["url"],
+            body_parts["locale"],
+            json.dumps(body_parts["products"]),
+            json.dumps(body_parts["topics"]),
+            # escaping for PostgreSQL (only this field requires it in fact)
+            body_parts["summary"].replace("'", "''"),
         )
         curs.execute(SQL, data)
         conn.commit()

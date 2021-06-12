@@ -7,5 +7,5 @@ CREATE TABLE slugs (
     locale VARCHAR(255) NOT NULL,
     products TEXT NOT NULL,
     topics TEXT NOT NULL,
-    summary VARCHAR(255) NOT NULL
+    summary TEXT NOT NULL
 );
