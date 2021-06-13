@@ -16,3 +16,13 @@ services:
           - ./postgres-data:/var/lib/postgresql/data
           # copy the sql script to create tables
           - ./sql/create_tables.sql:/docker-entrypoint-initdb.d/init.sql
+    fastapi:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+            labels:
+              - fastapi
+        ports:
+          - "8000:8000"
+        depends_on:
+          - postgres
