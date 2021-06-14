@@ -1,5 +1,9 @@
 import json
+import os
 from typing import Any, Dict, List
+
+import aiofiles
+from app.core.config import settings
 
 SLUG_DB_KEYS = [
     "id",
@@ -36,3 +40,13 @@ def cleanup_db_output_overview(ret: List[Any]) -> List[Dict[str, Any]]:
     for r in ret:
         result.append({"id": r[0], "title": r[1]})
     return result
+
+
+async def get_html_content(slug_title: str) -> str:
+    try:
+        path = os.path.join(settings.HTMLS_PATH, slug_title + ".html")
+        async with aiofiles.open(path, mode="r") as f:
+            contents = await f.read()
+    except Exception as e:
+        contents = f"Sorry, could not find file to get contents!"
+    return contents

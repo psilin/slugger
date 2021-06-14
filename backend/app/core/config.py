@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     DATABASE_DSN: str = (
         "host=postgres port=5432 dbname=postgres user=postgres password=postgres"
     )
+    HTMLS_PATH: str = "/opt/htmls"
 
 
 settings = Settings()
