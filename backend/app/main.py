@@ -5,13 +5,14 @@ from app.core.events import create_start_app_handler, create_stop_app_handler
 from fastapi import FastAPI, HTTPException
 
 
-def get_application() -> FastAPI:
+def get_application(with_db: bool = True) -> FastAPI:
     application = FastAPI(
         title=settings.PROJECT_NAME, debug=settings.DEBUG, version=settings.VERSION
     )
 
-    application.add_event_handler("startup", create_start_app_handler(application))
-    application.add_event_handler("shutdown", create_stop_app_handler(application))
+    if with_db is True:
+        application.add_event_handler("startup", create_start_app_handler(application))
+        application.add_event_handler("shutdown", create_stop_app_handler(application))
 
     application.add_exception_handler(HTTPException, http_error_handler)
 

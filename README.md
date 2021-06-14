@@ -42,7 +42,7 @@ virtualenv venv
 source venv/bin/activate
 # FROM HERE YOU ARE IN VIRTUAL ENVIRONMENT
 # install requirements
- pip3 install -r requirements.txt
+pip3 install -r requirements.txt
 # create directory to store HTML files
 mkdir htmls
 # run script, where:
@@ -53,7 +53,20 @@ python3 ./scripts/slug_downloader.py -v -s 800 -p htmls
 ```
 Note that for correct work with html files you are supposed to use `htmls` directory for downloader output script (-r option).
 
+## Testing
+Starting from the root of the project run the following commands to run tests:
+```shell
+# deal with virtual environment
+virtualenv test_venv
+source test_venv/bin/activate
+# FROM HERE YOU ARE IN VIRTUAL ENVIRONMENT
+# install requirements
+pip3 install -r requirements-dev.txt
+# create directory to store HTML files
+cd backend
+pytest
+```
+
 ## ToDo
  * update enpoint with input data validation;
- * httpx-based unit-testing;
  * pydantic model-based approach to data-structures.
