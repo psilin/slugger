@@ -5,6 +5,12 @@ from fastapi import FastAPI
 
 
 def create_start_app_handler(app: FastAPI) -> Callable:
+    """
+    Startup handler factory
+    :app: application
+    :returns: startup handler (opens DB connection)
+    """
+
     async def start_app() -> None:
         await connect_to_db(app)
 
@@ -12,6 +18,12 @@ def create_start_app_handler(app: FastAPI) -> Callable:
 
 
 def create_stop_app_handler(app: FastAPI) -> Callable:
+    """
+    Shutdown handler factory
+    :app: application
+    :returns: shutdown handler (closes DB connection)
+    """
+
     async def stop_app() -> None:
         await close_db_connection(app)
 

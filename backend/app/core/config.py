@@ -4,6 +4,10 @@ from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
+    """
+    Class representing default settings
+    """
+
     API_PREFIX: str = "/api/v1"
     VERSION: str = "0.1.0"
     PROJECT_NAME: str = "FastAPI Slugger"

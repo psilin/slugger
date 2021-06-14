@@ -6,6 +6,11 @@ from fastapi import FastAPI, HTTPException
 
 
 def get_application(with_db: bool = True) -> FastAPI:
+    """
+    Application factory
+    :with_db: if True adds handlers for connecting/disconnecting to DB on
+    startup/shutdown event. False can be set for testing purposes
+    """
     application = FastAPI(
         title=settings.PROJECT_NAME, debug=settings.DEBUG, version=settings.VERSION
     )

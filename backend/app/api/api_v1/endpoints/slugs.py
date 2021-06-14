@@ -8,7 +8,13 @@ router = APIRouter()
 
 
 @router.get("/overview")
-async def slugs(request: Request, page: int = 1, limit: int = 20):
+async def slugs(request: Request, page: int = 1, limit: int = 20) -> None:
+    """
+    Request handler (slugs page)
+    :request: HTTP request
+    :page: page number
+    :limit: page size
+    """
     if page < 1:
         raise HTTPException(
             status_code=422, detail="Page query parameter should be >= 1."
@@ -26,7 +32,12 @@ async def slugs(request: Request, page: int = 1, limit: int = 20):
 
 
 @router.get("/page/{slug_id}")
-async def slug(request: Request, slug_id: int):
+async def slug(request: Request, slug_id: int) -> None:
+    """
+    Request handler (unique slug)
+    :request: HTTP request
+    :id: unique slug id
+    """
     try:
         slug = await get_slug_by_id(request.app.state.pool, slug_id)
     except EntityDoesNotExist:

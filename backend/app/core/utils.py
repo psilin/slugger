@@ -19,7 +19,9 @@ SLUG_DB_KEYS = [
 
 def cleanup_db_output_page(ret: List[Any]) -> Dict[str, Any]:
     """
-    Ugly way to compensate for storing arrays in DB as strings (single page)
+    Adapter for slugs page from DB
+    :ret: slugs page in DB format (some arrays stored as strings)
+    :returns: page in output format
     """
     result: "Dict[str, Any]" = {}
     rzip = zip(SLUG_DB_KEYS, ret)
@@ -34,7 +36,9 @@ def cleanup_db_output_page(ret: List[Any]) -> Dict[str, Any]:
 
 def cleanup_db_output_overview(ret: List[Any]) -> List[Dict[str, Any]]:
     """
-    Ugly way to compensate for storing arrays in DB as strings (overview)
+    Adapter for slug from DB
+    :ret: slug in DB format (some arrays stored as strings)
+    :returns: slug in output format
     """
     result: "List[Dict[str, Any]]" = []
     for r in ret:
@@ -43,6 +47,10 @@ def cleanup_db_output_overview(ret: List[Any]) -> List[Dict[str, Any]]:
 
 
 async def get_html_content(slug_title: str) -> str:
+    """
+    Get HTML file contents from FS using slug title
+    :slug_title: name of the slug-related HTML file
+    """
     try:
         path = os.path.join(settings.HTMLS_PATH, slug_title + ".html")
         async with aiofiles.open(path, mode="r") as f:

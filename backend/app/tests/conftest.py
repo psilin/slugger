@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(scope="module")
 def client() -> Generator:
+    """
+    Test client fixture
+    """
     app = get_application(with_db=False)
     with TestClient(app) as c:
         yield c
