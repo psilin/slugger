@@ -1,4 +1,5 @@
 import aiopg
+from app.db.errors import EntityDoesNotExist
 
 SQL_SLUG_BU_ID = "SELECT * FROM slugs WHERE id=%s;"
 SQL_SLUGS_PAGE = "SELECT * FROM slugs ORDER BY id ASC OFFSET %s LIMIT %s;"
@@ -12,6 +13,8 @@ async def get_slug_by_id(pool: aiopg.Pool, id: int):
             ret = []
             async for row in curs:
                 ret.append(row)
+            if len(ret) == 0:
+                raise EntityDoesNotExist
             return ret
 
 
@@ -23,4 +26,6 @@ async def get_slugs_page(pool: aiopg.Pool, page: int, limit: int):
             ret = []
             async for row in curs:
                 ret.append(row)
+            if len(ret) == 0:
+                raise EntityDoesNotExist
             return ret
