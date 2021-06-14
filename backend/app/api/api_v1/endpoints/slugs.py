@@ -1,3 +1,4 @@
+from app.core.utils import cleanup_db_output
 from app.db.errors import EntityDoesNotExist
 from app.db.slugs import get_slug_by_id, get_slugs_page
 from fastapi import APIRouter, HTTPException, Request
@@ -19,7 +20,8 @@ async def slugs(request: Request, page: int = 1, limit: int = 20):
         slugs = await get_slugs_page(request.app.state.pool, page, limit)
     except EntityDoesNotExist:
         raise HTTPException(status_code=404, detail="No such entity.")
-    return {"page": page, "limit": limit, "slugs": slugs}
+    result = cleanup_db_output(slugs)
+    return {"page": page, "limit": limit, "slugs": result}
 
 
 @router.get("/page/{slug_id}")
@@ -28,4 +30,5 @@ async def slug(request: Request, slug_id: int):
         slug = await get_slug_by_id(request.app.state.pool, slug_id)
     except EntityDoesNotExist:
         raise HTTPException(status_code=404, detail="No such entity.")
-    return {"slug_id": slug}
+    result = cleanup_db_output(slug)
+    return result[0]
