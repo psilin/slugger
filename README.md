@@ -40,7 +40,7 @@ Note that downloader script cleans DB table before start to avoid conflicts whil
 # deal with virtual environment
 virtualenv venv
 source venv/bin/activate
-# FROM HERE YOU ARE IN VIRTULA ENVIRONMENT
+# FROM HERE YOU ARE IN VIRTUAL ENVIRONMENT
 # install requirements
  pip3 install -r requirements.txt
 # create directory to store HTML files
