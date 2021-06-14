@@ -51,3 +51,8 @@ mkdir htmls
 # -p is a path to where to store html files (if you decide to avoid it - just not specify this option)
 python3 ./scripts/slug_downloader.py -v -s 800 -p htmls
 ```
+
+## ToDo
+ * update enpoint with input data validation;
+ * httpx-based unit-testing;
+ * pydantic model-based approach to data-structures.

@@ -13,19 +13,26 @@ SLUG_DB_KEYS = [
 ]
 
 
-def cleanup_db_output(ret: List[Any]) -> List[Dict[str, Any]]:
+def cleanup_db_output_page(ret: List[Any]) -> Dict[str, Any]:
     """
-    Ugly way to compensate for storing arrays in DB as strings
+    Ugly way to compensate for storing arrays in DB as strings (single page)
+    """
+    result: "Dict[str, Any]" = {}
+    rzip = zip(SLUG_DB_KEYS, ret)
+    for (k, v) in rzip:
+        result[k] = v
+
+    result["summary"] = result["summary"].replace("''", "'")
+    result["topics"] = json.loads(result["topics"])
+    result["products"] = json.loads(result["products"])
+    return result
+
+
+def cleanup_db_output_overview(ret: List[Any]) -> List[Dict[str, Any]]:
+    """
+    Ugly way to compensate for storing arrays in DB as strings (overview)
     """
     result: "List[Dict[str, Any]]" = []
     for r in ret:
-        rzip = zip(SLUG_DB_KEYS, r)
-        res: "Dict[str, Any]" = {}
-        for (k, v) in rzip:
-            res[k] = v
-
-        res["summary"] = res["summary"].replace("''", "'")
-        res["topics"] = json.loads(res["topics"])
-        res["products"] = json.loads(res["products"])
-        result.append(res)
+        result.append({"id": r[0], "title": r[1]})
     return result
