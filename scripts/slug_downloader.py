@@ -93,8 +93,10 @@ def process_slug(task_queue: mp.Queue, res_queue: mp.Queue, path: str) -> None:
     """
 
     # not the prettiest way but needed to insure correct number of statuses
+    connected = True
+    conn = None
+    curs = None
     try:
-        connected = True
         conn = psycopg2.connect(DSN)
         curs = conn.cursor()
     except Exception:
@@ -138,9 +140,14 @@ def process_slug(task_queue: mp.Queue, res_queue: mp.Queue, path: str) -> None:
         except Exception:
             res_queue.put((slug, SlugProcessStatus.EXCEPTION))
 
-    if connected is True:
-        curs.close()
-        conn.close()
+    # theoretically closing can raise as well
+    try:
+        if curs is not None:
+            curs.close()
+        if conn is not None:
+            conn.close()
+    except Exception:
+        pass
 
 
 def initial_db_cleanup() -> bool:
@@ -151,19 +158,31 @@ def initial_db_cleanup() -> bool:
     :returns: success status of the operation
     """
     logger = logging.getLogger(LOGGER_NAME)
+    conn = None
+    curs = None
+    result = True
     try:
         conn = psycopg2.connect(DSN)
         curs = conn.cursor()
         curs.execute("TRUNCATE TABLE slugs;")
         conn.commit()
-        return True
     except Exception as e:
-        conn.rollback()
+        if conn is not None:
+            conn.rollback()
         logger.debug(f"Failed to cleanup DB due to {e}")
-        return False
-    finally:
-        curs.close()
-        conn.close()
+        result = False
+
+    # theoretically closing can raise as well
+    try:
+        if curs is not None:
+            curs.close()
+        if conn is not None:
+            conn.close()
+    except Exception as e:
+        logger.debug(f"Failed to close connection/cursor due to {e}")
+        result = False
+
+    return result
 
 
 def insert_into_db(
