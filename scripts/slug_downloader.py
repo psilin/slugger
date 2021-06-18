@@ -43,14 +43,15 @@ class SlugProcessStatus(enum.Enum):
 
 def download_slug_names(
     slug_number: int,
-) -> mp.Queue:
+) -> typing.Tuple[mp.Queue, int]:
     """
     Downloading slug names. Decided to not parallelise it as it will take
     small piece of overall execution time anyway. And relatively small for
     maximum possible number of slugs anyway.
     :slug_number: number of slugs to download
     :returns: queue with all slugs to download (again there not much of them
-    so it is ok)
+    so it is ok), and actual size of the queue (you can not get it directly
+    on Mac OS X) due to a bug, so this value is a workaround for this.
     """
     logger = logging.getLogger(LOGGER_NAME)
     url = BASE_URL
@@ -74,7 +75,7 @@ def download_slug_names(
             task_queue.put(res["slug"])
             cnt += 1
             if cnt == slug_number:
-                return task_queue
+                return task_queue, slug_number
 
         r = requests.get(url=body["next"])
         r.raise_for_status()
@@ -256,15 +257,15 @@ def main(slugs: click.IntRange, path: click.Path, verbose: bool) -> None:
         return
 
     try:
-        task_queue = download_slug_names(typing.cast(int, slugs))
+        task_queue, tasks_size = download_slug_names(typing.cast(int, slugs))
     except Exception as exc:
         logger.error(f"Failed to download enough slug names due to: {exc}")
+        return
 
-    tasks_size = task_queue.qsize()
     logger.info(f"{tasks_size} slugs are scheduled to be processed")
 
     res_queue: "mp.Queue[typing.Tuple[str, SlugProcessStatus]]" = mp.Queue(
-        maxsize=task_queue.qsize()
+        maxsize=tasks_size
     )
     processes = []
     for _ in range(mp.cpu_count()):
