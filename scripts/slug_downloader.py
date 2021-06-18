@@ -25,6 +25,8 @@ SLUG_KEYS = [
     "html",
 ]
 
+LOGGER_NAME = "Slug Downloader"
+
 
 class SlugProcessStatus(enum.Enum):
     """
@@ -41,17 +43,16 @@ class SlugProcessStatus(enum.Enum):
 
 def download_slug_names(
     slug_number: int,
-    logger: logging.Logger,
 ) -> mp.Queue:
     """
     Downloading slug names. Decided to not parallelise it as it will take
     small piece of overall execution time anyway. And relatively small for
     maximum possible number of slugs anyway.
     :slug_number: number of slugs to download
-    :logger: logger to log info
     :returns: queue with all slugs to download (again there not much of them
     so it is ok)
     """
+    logger = logging.getLogger(LOGGER_NAME)
     url = BASE_URL
     r = requests.get(url=url)
     r.raise_for_status()
@@ -141,16 +142,14 @@ def process_slug(task_queue: mp.Queue, res_queue: mp.Queue, path: str) -> None:
         conn.close()
 
 
-def initial_db_cleanup(
-    logger: logging.Logger,
-) -> bool:
+def initial_db_cleanup() -> bool:
     """
     This function truncates the table on startup, so
     no additional cleanup is needed and script runs
     are kind of idempotent
-    :logger: logger to log info
     :returns: success status of the operation
     """
+    logger = logging.getLogger(LOGGER_NAME)
     try:
         conn = psycopg2.connect(DSN)
         curs = conn.cursor()
@@ -197,14 +196,12 @@ def insert_into_db(
         return False
 
 
-def print_stats(
-    stats: typing.Dict[SlugProcessStatus, int], logger: logging.Logger
-) -> None:
+def print_stats(stats: typing.Dict[SlugProcessStatus, int]) -> None:
     """
     Printing statistics
     :stats: statistics dictionary
-    :logger: logger to log info
     """
+    logger = logging.getLogger(LOGGER_NAME)
     human_readable = {
         SlugProcessStatus.OK: "slug(s) were processed successfully.",
         SlugProcessStatus.DOWNLOAD_FAILED: "slug(s) failed to be downloaded.",
@@ -248,18 +245,18 @@ def print_stats(
 )
 def main(slugs: click.IntRange, path: click.Path, verbose: bool) -> None:
     logging.basicConfig()
-    logger = logging.getLogger("Slug Downloader")
+    logger = logging.getLogger(LOGGER_NAME)
     logger.setLevel(logging.INFO)
     if verbose is True:
         logger.setLevel(logging.DEBUG)
 
     logger.debug(f"Script started with: slugs={slugs}, path={path}, verbose={verbose}")
-    if initial_db_cleanup(logger) is False:
+    if initial_db_cleanup() is False:
         logger.info("Failed to cleanup DB, exiting...")
         return
 
     try:
-        task_queue = download_slug_names(typing.cast(int, slugs), logger)
+        task_queue = download_slug_names(typing.cast(int, slugs))
     except Exception as exc:
         logger.error(f"Failed to download enough slug names due to: {exc}")
 
@@ -286,7 +283,7 @@ def main(slugs: click.IntRange, path: click.Path, verbose: bool) -> None:
         logger.debug(f"{i} slug {slug} processed with status: {status}")
         stats[status] = stats.get(status, 0) + 1
 
-    print_stats(stats, logger)
+    print_stats(stats)
 
     for p in processes:
         p.join()
