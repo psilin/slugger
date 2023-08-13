@@ -25,7 +25,7 @@ def cleanup_db_output_page(ret: List[Any]) -> Dict[str, Any]:
     """
     result: "Dict[str, Any]" = {}
     rzip = zip(SLUG_DB_KEYS, ret)
-    for (k, v) in rzip:
+    for k, v in rzip:
         result[k] = v
 
     result["summary"] = result["summary"].replace("''", "'")
